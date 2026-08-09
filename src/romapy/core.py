@@ -29,10 +29,23 @@ class ROMA:
         raise NotImplementedError("<func> fit")
 
     def _compute_module(self, submatrix: pd.DataFrame, global_center: pd.Series | None) -> dict[str, pd.Series | float]:
-        # TODO: core PCA calc, offer fixed (global mean) or standard (row mean)
-        
+        if self.center == "standard":
+            row_means = submatrix.mean(axis=1)
+            X = submatrix.sub(row_means, axis="index")
+        else:  # "fixed"
+            X = submatrix.sub(global_center, axis="columns")
 
-        raise NotImplementedError("<func> _compute_module")
+        pca = PCA(n_components=2, random_state=self.random_state)
+        pca.fit(X.T)                          # samples as rows, genes as columns
+        scores = pca.transform(X.T)[:, 0]     # PC1 projection only
+        l1, l2 = pca.explained_variance_ratio_
+
+        return {
+            "scores": pd.Series(scores, index=submatrix.columns),
+            "l1": float(l1),
+            "l2": float(l2),
+            "gene_weights": pd.Series(pca.components_[0], index=submatrix.index),
+        }
 
     def _orient_pc1(self, pc1_scores: pd.Series, submatrix: pd.DataFrame) -> pd.Series:
         # TODO: orients the sign of pca based on gene avg correlation
