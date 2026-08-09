@@ -18,16 +18,7 @@ class ROMA:
         ...  # orchestrates everything below, loops over gene_sets
 
     def _compute_module(self, submatrix: pd.DataFrame, global_center: Literal["fixed", "standard"] = "fixed") -> dict:
-        valid = {"fixed", "standard"}
-        if global_center not in valid:
-            raise ValueError(f"by must be one of {valid}, got {global_center!r} instead.")
-
-        if global_center == "fixed":
-            return
-
-        if global_center == "standard":
-            submatrix = submatrix - submatrix.mean(axis=1)
-            return
+        ... # type
 
     def _orient_pc1(self, pc1_scores, submatrix) -> pc1_scores:
         ...  # sign correction, what we just discussed
