@@ -1,10 +1,18 @@
-from dataclasses import dataclass, field
-import pandas as pd
+# NOTE: Decorators & Types
+from dataclasses import dataclass
 from typing import Literal
-from romapy.results import resultROMA
+
+# NOTE: Engine
+import pandas as pd
+import numpy as np
 from sklearn.decomposition import PCA
 
-# NOTE: Core file for romapy classes, ROMA is the baseline.
+# NOTE: Cross-Files
+from romapy.results import resultROMA
+
+"""
+    DESC: core file for romapy classes, ROMA is the baseline.
+"""
 
 @dataclass
 class ROMA:
@@ -14,17 +22,32 @@ class ROMA:
     n_permutations: int = 1000
     random_state: int | None = None
 
-    def fit(self, expression, gene_sets, min_genes=5) -> resultROMA:
-        ...  # orchestrates everything below, loops over gene_sets
+    def fit(self, expression: pd.DataFrame, gene_sets: dict[str, list[str]], min_genes: int = 5) -> resultROMA:
+        # TODO: this function does the main calculation, in the end
 
-    def _compute_module(self, submatrix: pd.DataFrame, global_center: Literal["fixed", "standard"] = "fixed") -> dict:
-        ... # type
 
-    def _orient_pc1(self, pc1_scores, submatrix) -> pc1_scores:
-        ...  # sign correction, what we just discussed
+        raise NotImplementedError("<func> fit")
 
-    def _trim_outliers(self, submatrix) -> (submatrix, dropped_names):
-        ...  # leave-one-out robust trimming
+    def _compute_module(self, submatrix: pd.DataFrame, global_center: pd.Series | None) -> dict[str, pd.Series | float]:
+        # TODO: core PCA calc, offer fixed (global mean) or standard (row mean)
+        
 
-    def _null_distribution(self, expression, module_size, global_center) -> array:
-        ...  # permutation testing
+        raise NotImplementedError("<func> _compute_module")
+
+    def _orient_pc1(self, pc1_scores: pd.Series, submatrix: pd.DataFrame) -> pd.Series:
+        # TODO: orients the sign of pca based on gene avg correlation
+        
+
+        raise NotImplementedError("<func> _orient_pc1")
+
+    def _trim_outliers(self, submatrix: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+        # TODO: trimming outliers before computation
+        
+
+        raise NotImplementedError("<func> _trim_outliers")
+
+    def _null_distribution(self, expression: pd.DataFrame, module_size: int, global_center: pd.Series | None) -> np.ndarray:
+        # TODO: pval checking gene sets with randomised inputs, if sig better proceed
+        
+
+        raise NotImplementedError("<func> _null_distribution")
