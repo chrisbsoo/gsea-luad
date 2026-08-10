@@ -54,10 +54,27 @@ class ROMA:
         raise NotImplementedError("<func> _orient_pc1")
 
     def _trim_outliers(self, submatrix: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-        # TODO: trimming outliers before computation
-        
+        samples = submatrix.columns.tolist()
 
-        raise NotImplementedError("<func> _trim_outliers")
+        leave_one_out_l1 = []
+        for sample in samples:
+            reduced = submatrix.drop(columns=sample)
+            row_means = reduced.mean(axis=1)
+            X = reduced.sub(row_means, axis="index")
+            pca = PCA(n_components=1, random_state=self.random_state)
+            pca.fit(X.T)
+            leave_one_out_l1.append(pca.explained_variance_ratio_[0])
+
+        leave_one_out_l1 = np.array(leave_one_out_l1)
+        std = leave_one_out_l1.std()
+        if std == 0:
+            return submatrix, []
+
+        z_scores = (leave_one_out_l1 - leave_one_out_l1.mean()) / std
+        dropped = [samples[i] for i in range(len(samples)) if abs(z_scores[i]) > self.z_max]
+        kept = [s for s in samples if s not in dropped]
+
+        return submatrix[kept], dropped
 
     def _null_distribution(self, expression: pd.DataFrame, module_size: int, global_center: pd.Series | None) -> np.ndarray:
         # TODO: pval checking gene sets with randomised inputs, if sig better proceed
