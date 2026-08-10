@@ -48,10 +48,12 @@ class ROMA:
         }
 
     def _orient_pc1(self, pc1_scores: pd.Series, submatrix: pd.DataFrame) -> pd.Series:
-        # TODO: orients the sign of pca based on gene avg correlation
-        
+        mean_expr = submatrix.mean(axis=0)
+        correlation = np.corrcoef(pc1_scores, mean_expr)[0, 1]
 
-        raise NotImplementedError("<func> _orient_pc1")
+        if correlation < 0:
+            return -pc1_scores
+        return pc1_scores
 
     def _trim_outliers(self, submatrix: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         samples = submatrix.columns.tolist()
