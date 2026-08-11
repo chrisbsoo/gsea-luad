@@ -12,7 +12,6 @@ def random_expression():
     samples = [f"sample_{i}" for i in range(40)]
     return pd.DataFrame(rng.normal(size=(len(genes), len(samples))), index=genes, columns=samples)
 
-@pytest.mark.xfail(reason="fit() not yet implemented", strict=True)
 def test_l1_pvalue_is_valid_probability(random_expression):
     gene_sets = {"RANDOM_MODULE": list(random_expression.index[:10])}
     results = ROMA(n_permutations=200, random_state=0).fit(random_expression, gene_sets)
@@ -20,7 +19,6 @@ def test_l1_pvalue_is_valid_probability(random_expression):
     assert 0.0 <= p <= 1.0
 
 
-@pytest.mark.xfail(reason="fit() not yet implemented", strict=True)
 def test_pure_noise_module_is_rarely_significant(random_expression):
     """Sanity check on false-positive rate: a module of pure noise genes
     shouldn't be flagged significant far more often than alpha allows."""
