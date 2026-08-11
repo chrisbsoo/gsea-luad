@@ -140,3 +140,59 @@ def test_orient_pc1_preserves_index_and_magnitude(coordinated_expression):
 
     assert list(oriented.index) == list(result["scores"].index)
     assert np.allclose(oriented.abs().values, result["scores"].abs().values)
+
+def test_fit_returns_romaresults(coordinated_expression):
+    from romapy.results import resultROMA
+
+    expression, factor = coordinated_expression
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+    roma = ROMA(center="standard", n_permutations=100, random_state=0)
+    results = roma.fit(expression, gene_sets)
+
+    assert isinstance(results, resultROMA)
+    assert list(results.scores.index) == ["COORD_MODULE"]
+
+
+def test_recovers_known_coordinated_module(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {
+        "COORD_MODULE": [f"COORD_{i}" for i in range(5)],
+        "NOISE_MODULE": [f"NOISE_{i}" for i in range(5)],
+    }
+    roma = ROMA(center="standard", n_permutations=200, random_state=0)
+    results = roma.fit(expression, gene_sets)
+
+    assert results.l1_pval["COORD_MODULE"] < 0.05
+    assert results.l1_pval["NOISE_MODULE"] > 0.05
+
+
+def test_fixed_center_differs_from_standard(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+
+    fixed = ROMA(center="fixed", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
+    standard = ROMA(center="standard", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
+
+    assert not np.allclose(fixed.scores.loc["COORD_MODULE"], standard.scores.loc["COORD_MODULE"])
+
+
+def test_robust_mode_drops_injected_outlier(coordinated_expression):
+    expression, factor = coordinated_expression
+    df = expression.copy()
+    df["sample_0"] = df["sample_0"] * 100  # inject an extreme outlier
+
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+    roma = ROMA(center="standard", robust=True, z_max=3.0, n_permutations=50, random_state=0)
+    results = roma.fit(df, gene_sets)
+
+    assert "sample_0" in results.dropped_samples["COORD_MODULE"]
+
+
+def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {"TOO_SMALL": ["COORD_0", "COORD_1"]}  # only 2 genes
+
+    roma = ROMA(center="standard", n_permutations=50, random_state=0)
+    results = roma.fit(expression, gene_sets, min_genes=5)
+
+    assert "TOO_SMALL" not in results.scores.index

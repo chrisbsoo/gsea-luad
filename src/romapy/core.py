@@ -5,7 +5,6 @@ from typing import Literal
 # NOTE: Engine
 import pandas as pd
 import numpy as np
-from sklearn.decomposition import PCA
 
 # NOTE: Cross-Files
 from romapy.results import resultROMA
@@ -76,10 +75,8 @@ class ROMA:
             aligned_center = global_center.loc[submatrix.columns]
             X = submatrix.sub(aligned_center, axis="columns")
             
-        pca = PCA(n_components=2, random_state=self.random_state)
-        pca.fit(X.T)                          # samples as rows, genes as columns
-        scores = pca.transform(X.T)[:, 0]     # PC1 projection only
-        l1, l2 = pca.explained_variance_ratio_
+        scores, var = self._pca_fast(X.T, 2)
+        l1, l2 = var
 
         return {
             "scores": pd.Series(scores, index=submatrix.columns),
@@ -104,9 +101,9 @@ class ROMA:
             reduced = submatrix.drop(columns=sample)
             row_means = reduced.mean(axis=1)
             X = reduced.sub(row_means, axis="index")
-            pca = PCA(n_components=1, random_state=self.random_state)
-            pca.fit(X.T)
-            leave_one_out_l1.append(pca.explained_variance_ratio_[0])
+            scores, var = self._pca_fast(X.T, 2)
+            l1, l2 = var
+            leave_one_out_l1.append(l1)
 
         leave_one_out_l1 = np.array(leave_one_out_l1)
         std = leave_one_out_l1.std()
@@ -135,58 +132,14 @@ class ROMA:
 
         return np.column_stack([null_l1, null_gap])
 
-def test_fit_returns_romaresults(coordinated_expression):
-    from romapy.results import resultROMA
+    def _pca_fast(X_centered: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
+        """
+        X_centered: samples x genes, already centered.
+        Returns (scores, explained_variance_ratio) for the first n_components.
+        """
+        U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        explained_variance = (S ** 2) / (X_centered.shape[0] - 1)
+        explained_variance_ratio = explained_variance / explained_variance.sum()
+        scores = U[:, :n_components] * S[:n_components]
+        return scores[:, :n_components], explained_variance_ratio[:n_components]
 
-    expression, factor = coordinated_expression
-    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
-    roma = ROMA(center="standard", n_permutations=100, random_state=0)
-    results = roma.fit(expression, gene_sets)
-
-    assert isinstance(results, resultROMA)
-    assert list(results.scores.index) == ["COORD_MODULE"]
-
-
-def test_recovers_known_coordinated_module(coordinated_expression):
-    expression, factor = coordinated_expression
-    gene_sets = {
-        "COORD_MODULE": [f"COORD_{i}" for i in range(5)],
-        "NOISE_MODULE": [f"NOISE_{i}" for i in range(5)],
-    }
-    roma = ROMA(center="standard", n_permutations=200, random_state=0)
-    results = roma.fit(expression, gene_sets)
-
-    assert results.l1_pval["COORD_MODULE"] < 0.05
-    assert results.l1_pval["NOISE_MODULE"] > 0.05
-
-
-def test_fixed_center_differs_from_standard(coordinated_expression):
-    expression, factor = coordinated_expression
-    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
-
-    fixed = ROMA(center="fixed", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
-    standard = ROMA(center="standard", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
-
-    assert not np.allclose(fixed.scores.loc["COORD_MODULE"], standard.scores.loc["COORD_MODULE"])
-
-
-def test_robust_mode_drops_injected_outlier(coordinated_expression):
-    expression, factor = coordinated_expression
-    df = expression.copy()
-    df["sample_0"] = df["sample_0"] * 100  # inject an extreme outlier
-
-    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
-    roma = ROMA(center="standard", robust=True, z_max=3.0, n_permutations=50, random_state=0)
-    results = roma.fit(df, gene_sets)
-
-    assert "sample_0" in results.dropped_samples["COORD_MODULE"]
-
-
-def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
-    expression, factor = coordinated_expression
-    gene_sets = {"TOO_SMALL": ["COORD_0", "COORD_1"]}  # only 2 genes
-
-    roma = ROMA(center="standard", n_permutations=50, random_state=0)
-    results = roma.fit(expression, gene_sets, min_genes=5)
-
-    assert "TOO_SMALL" not in results.scores.index

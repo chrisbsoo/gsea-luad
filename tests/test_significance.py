@@ -59,3 +59,4 @@ def test_null_distribution_depends_on_module_size(random_expression):
     null_small = roma._null_distribution(random_expression, module_size=5, global_center=None)
     null_large = roma._null_distribution(random_expression, module_size=50, global_center=None)
     assert null_small[:, 0].mean() > null_large[:, 0].mean()
+
