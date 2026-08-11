@@ -4,11 +4,20 @@ build-backend = "hatchling.build"
 
 [project]
 name = "romapy"
-version = "0.1.0"
-description = "..."
+version = "0.1.1"   # match your latest tag
+description = "An independent Python implementation of ROMA (Representation and Quantification of Module Activity)"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+authors = [{chris = "Christopher Soo", email = "chris.bsoo2005@gmail.com"}]
+keywords = ["bioinformatics", "gene-set-enrichment", "pca", "pathway-analysis", "genomics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
 
 dependencies = [
     "numpy>=1.23",

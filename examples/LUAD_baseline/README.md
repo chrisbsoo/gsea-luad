@@ -93,7 +93,3 @@ jupyter notebook baseline_analysis.ipynb
 ```
 
 Alternatively, run the jupyter notebook cell-by-cell
-
-
-
-## Romapy Non-linear Kernel PCA Pipeline 
