@@ -83,7 +83,14 @@ results.scores                     # modules x samples activity scores
 results.significant(alpha=0.05)    # modules passing the L1 significance test
 ```
 
-## Development
+
+## For Users / Researchers
+
+```bash
+pip install romapy
+```
+
+## For Contributors / Developers
 
 ```bash
 pip install -e ".[dev]"
