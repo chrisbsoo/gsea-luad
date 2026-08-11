@@ -96,8 +96,14 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df_output = df_output.dropna(subset=["C_STAGE"])
     n_dropped = n_before - len(df_output)
     print(f"[preprocess_clinical] dropped {n_dropped} of {n_before} samples with no usable stage label")
-
     df_output = df_output.set_index("Sample ID")
+    df_output.index.name = "Sample ID" 
+
+    try:
+        df_output.to_csv("./data/processed/cleaned_clinical.csv", index=True)
+    except:
+        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline")
+
     return df_output
 
 

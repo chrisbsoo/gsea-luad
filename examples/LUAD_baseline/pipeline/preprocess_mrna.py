@@ -65,6 +65,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     if n_nan > 0:
         raise ValueError(f"cleaned expression matrix still contains {n_nan} NaN values")
 
+    try:
+        df.to_csv("./data/processed/cleaned_mrna.csv", index=True)
+    except:
+        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline")
+
     return df
 
 
