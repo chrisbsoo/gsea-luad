@@ -60,3 +60,39 @@ def test_null_distribution_depends_on_module_size(random_expression):
     null_large = roma._null_distribution(random_expression, module_size=50, global_center=None)
     assert null_small[:, 0].mean() > null_large[:, 0].mean()
 
+def test_null_distribution_power_iteration_matches_svd_reference(random_expression):
+    module_size = 10
+    n_permutations = 50
+    roma = ROMA(center="standard", n_permutations=n_permutations, random_state=0)
+
+    # replicate the exact same random draws _null_distribution generates
+    # internally, so we're comparing on identical data, not just similar data
+    rng = np.random.default_rng(roma.random_state)
+    n_genes = len(random_expression.index)
+    random_indices = [
+        rng.choice(n_genes, size=module_size, replace=False)
+        for _ in range(n_permutations)
+    ]
+
+    # build the exact reference using the existing, already-validated
+    # SVD-based _compute_module, one draw at a time
+    reference_l1 = []
+    reference_gap = []
+    for idx in random_indices:
+        genes = random_expression.index[idx]
+        submatrix = random_expression.loc[genes]
+        result = roma._compute_module(submatrix, global_center=None)
+        reference_l1.append(result["l1"])
+        reference_gap.append(result["l1"] - result["l2"])
+
+    reference_l1 = np.array(reference_l1)
+    reference_gap = np.array(reference_gap)
+
+    # the power-iteration version, using the same seed so it draws the
+    # identical random gene sets internally
+    null = roma._null_distribution(random_expression, module_size, global_center=None)
+    power_l1 = null[:, 0]
+    power_gap = null[:, 1]
+
+    assert np.allclose(power_l1, reference_l1, atol=0.05)
+    assert np.allclose(power_gap, reference_gap, atol=0.05)

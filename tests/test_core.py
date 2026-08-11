@@ -196,3 +196,4 @@ def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
     results = roma.fit(expression, gene_sets, min_genes=5)
 
     assert "TOO_SMALL" not in results.scores.index
+

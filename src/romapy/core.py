@@ -124,20 +124,36 @@ class ROMA:
         return submatrix[kept], dropped
 
     def _null_distribution(self, expression: pd.DataFrame, module_size: int, global_center: pd.Series | None) -> np.ndarray:
+        if self.center == "fixed" and global_center is None:
+            raise ValueError("global_center is required when center='fixed'")
+
         rng = np.random.default_rng(self.random_state)
-        all_genes = expression.index.to_numpy()
+        expr_array = expression.to_numpy()
+        n_genes = expr_array.shape[0]
 
-        null_l1 = np.empty(self.n_permutations)
-        null_gap = np.empty(self.n_permutations)
+        random_indices = np.array([
+            rng.choice(n_genes, size=module_size, replace=False)
+            for _ in range(self.n_permutations)
+        ])  # shape (n_permutations, module_size)
 
-        for i in range(self.n_permutations):
-            random_genes = rng.choice(all_genes, size=module_size, replace=False)
-            random_submatrix = expression.loc[random_genes]
-            result = self._compute_module(random_submatrix, global_center)
-            null_l1[i] = result["l1"]
-            null_gap[i] = result["l1"] - result["l2"]
+        batch = expr_array[random_indices]  # shape (n_permutations, module_size, n_samples)
 
-        return np.column_stack([null_l1, null_gap])
+        if self.center == "standard":
+            row_means = batch.mean(axis=2, keepdims=True)
+            batch_centered = batch - row_means
+        else:  # "fixed"
+            gc = global_center.to_numpy()
+            batch_centered = batch - gc[None, None, :]
+
+        gram_batch = np.einsum("bik,bjk->bij", batch_centered, batch_centered)
+        eigval1, eigval2 = self._batched_power_iteration(gram_batch, random_state=self.random_state)
+
+        trace = np.einsum("bii->b", gram_batch)
+        trace[trace == 0] = 1.0  # guard degenerate all-zero modules
+
+        l1 = eigval1 / trace
+        l2 = eigval2 / trace
+        return np.column_stack([l1, l1 - l2])
 
     def _pca_fast(self, X_centered: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
 
@@ -146,4 +162,31 @@ class ROMA:
         explained_variance_ratio = explained_variance / explained_variance.sum()
         scores = U[:, :n_components] * S[:n_components]
         return scores[:, :n_components], explained_variance_ratio[:n_components]
+
+    def _batched_power_iteration(self, 
+        gram_batch: np.ndarray, n_iterations: int = 50, random_state: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+
+        rng = np.random.default_rng(random_state)
+        n_batch, k, _ = gram_batch.shape
+
+        def _top_eigenvalue(G: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            v = rng.normal(size=(n_batch, k))
+            v /= np.linalg.norm(v, axis=1, keepdims=True)
+            for _ in range(n_iterations):
+                v = np.einsum("bij,bj->bi", G, v)
+                norms = np.linalg.norm(v, axis=1, keepdims=True)
+                norms[norms == 0] = 1.0  # guard degenerate all-zero rows
+                v /= norms
+            eigval = np.einsum("bi,bij,bj->b", v, G, v)  # Rayleigh quotient
+            return eigval, v
+
+        eigval1, v1 = _top_eigenvalue(gram_batch)
+
+        # deflate: remove the found direction, then repeat to get the second eigenvalue
+        deflation = eigval1[:, None, None] * np.einsum("bi,bj->bij", v1, v1)
+        eigval2, _ = _top_eigenvalue(gram_batch - deflation)
+
+        return eigval1, eigval2
+
 
