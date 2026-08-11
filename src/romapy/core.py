@@ -75,14 +75,15 @@ class ROMA:
             aligned_center = global_center.loc[submatrix.columns]
             X = submatrix.sub(aligned_center, axis="columns")
             
-        scores, var = self._pca_fast(X.T, 2)
+        scores, var = self._pca_fast(X.T.to_numpy(), 2)
         l1, l2 = var
+        scores = scores[:, 0]
 
         return {
             "scores": pd.Series(scores, index=submatrix.columns),
             "l1": float(l1),
             "l2": float(l2),
-            "gene_weights": pd.Series(pca.components_[0], index=submatrix.index),
+            "gene_weights": pd.Series(l1, index=submatrix.index),
         }
 
     def _orient_pc1(self, pc1_scores: pd.Series, submatrix: pd.DataFrame) -> pd.Series:
@@ -101,7 +102,8 @@ class ROMA:
             reduced = submatrix.drop(columns=sample)
             row_means = reduced.mean(axis=1)
             X = reduced.sub(row_means, axis="index")
-            scores, var = self._pca_fast(X.T, 2)
+            scores, var = self._pca_fast(X.T.to_numpy(), 2)
+            scores = scores[:, 0]
             l1, l2 = var
             leave_one_out_l1.append(l1)
 
@@ -132,11 +134,8 @@ class ROMA:
 
         return np.column_stack([null_l1, null_gap])
 
-    def _pca_fast(X_centered: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
-        """
-        X_centered: samples x genes, already centered.
-        Returns (scores, explained_variance_ratio) for the first n_components.
-        """
+    def _pca_fast(self, X_centered: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
+
         U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
         explained_variance = (S ** 2) / (X_centered.shape[0] - 1)
         explained_variance_ratio = explained_variance / explained_variance.sum()
