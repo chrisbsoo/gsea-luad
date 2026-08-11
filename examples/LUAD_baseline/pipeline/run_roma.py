@@ -8,10 +8,10 @@ Applies romapy to the cleaned TCGA-LUAD data:
 """
 
 import argparse
-
+from scipy.stats import f_oneway
+from statsmodels.stats.multitest import multipletests   # add this import
 import pandas as pd
 from scipy.stats import f_oneway
-
 from romapy import ROMA, load_gmt
 
 
@@ -36,11 +36,6 @@ def intersect_samples(clinical: pd.DataFrame, expression: pd.DataFrame) -> tuple
 
 
 def test_stage_association(results, clinical: pd.DataFrame, alpha: float = 0.05) -> pd.DataFrame:
-    """
-    For each significant module, run a one-way ANOVA of its activity score
-    across tumor stage groups (C_STAGE), to test whether pathway activity
-    differs by stage - the actual biological question this analysis targets.
-    """
     sig_modules = results.significant(alpha=alpha)
     rows = []
 
@@ -50,12 +45,20 @@ def test_stage_association(results, clinical: pd.DataFrame, alpha: float = 0.05)
 
         groups = [g["score"].values for _, g in merged.groupby("stage") if len(g) >= 2]
         if len(groups) < 2:
-            continue  # not enough stage groups with data to compare
+            continue
 
         f_stat, p_value = f_oneway(*groups)
         rows.append({"module": module, "f_stat": f_stat, "stage_anova_pval": p_value})
 
-    return pd.DataFrame(rows).set_index("module").sort_values("stage_anova_pval")
+    result_df = pd.DataFrame(rows).set_index("module").sort_values("stage_anova_pval")
+
+    # multiple-testing correction: we ran one ANOVA per module, so correct
+    # across all of them together, not each in isolation
+    if len(result_df) > 0:
+        _, pvals_adj, _, _ = multipletests(result_df["stage_anova_pval"], method="fdr_bh")
+        result_df["stage_anova_pval_adj"] = pvals_adj
+
+    return result_df
 
 
 def main(clinical_path: str, expression_path: str, gene_sets_path: str, output_dir: str) -> None:
