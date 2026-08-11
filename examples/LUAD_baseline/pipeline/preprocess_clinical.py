@@ -39,12 +39,7 @@ def load_raw(path: str) -> pd.DataFrame:
 
 
 def _impute_stage_column(df: pd.DataFrame, target_col: str, feature_cols: list[str], min_f1: float = 0.6) -> pd.Series:
-    """
-    Impute missing values in `target_col` using a RandomForestClassifier
-    trained on `feature_cols`. Only applies the imputation if the model's
-    held-out F1 score clears `min_f1` — otherwise leaves missing values as
-    NaN rather than trusting an unreliable model's guesses.
-    """
+
     known = df.dropna(subset=[target_col] + feature_cols)
     unknown = df[df[target_col].isna()]
 
