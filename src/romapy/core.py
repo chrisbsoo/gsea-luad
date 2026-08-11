@@ -23,10 +23,47 @@ class ROMA:
     random_state: int | None = None
 
     def fit(self, expression: pd.DataFrame, gene_sets: dict[str, list[str]], min_genes: int = 5) -> resultROMA:
-        # TODO: this function does the main calculation, in the end
+        global_center = expression.mean(axis=0) if self.center == "fixed" else None
 
+        scores_dict, l1_dict, l1_pval_dict, coord_pval_dict = {}, {}, {}, {}
+        gene_weights_dict, dropped_dict = {}, {}
 
-        raise NotImplementedError("<func> fit")
+        for name, genes in gene_sets.items():
+            genes_present = [g for g in genes if g in expression.index]
+            if len(genes_present) < min_genes:
+                continue
+
+            submatrix = expression.loc[genes_present]
+
+            dropped = []
+            if self.robust:
+                submatrix, dropped = self._trim_outliers(submatrix)
+
+            result = self._compute_module(submatrix, global_center)
+            oriented_scores = self._orient_pc1(result["scores"], submatrix)
+
+            null = self._null_distribution(expression, len(genes_present), global_center)
+            real_l1 = result["l1"]
+            real_gap = result["l1"] - result["l2"]
+
+            l1_pval = (null[:, 0] >= real_l1).sum() / self.n_permutations
+            coord_pval = (null[:, 1] >= real_gap).sum() / self.n_permutations
+
+            scores_dict[name] = oriented_scores
+            l1_dict[name] = real_l1
+            l1_pval_dict[name] = l1_pval
+            coord_pval_dict[name] = coord_pval
+            gene_weights_dict[name] = result["gene_weights"]
+            dropped_dict[name] = dropped
+
+        return resultROMA(
+            scores=pd.DataFrame(scores_dict).T,   # modules x samples
+            l1=pd.Series(l1_dict),
+            l1_pval=pd.Series(l1_pval_dict),
+            coord_pval=pd.Series(coord_pval_dict),
+            gene_weights=gene_weights_dict,
+            dropped_samples=dropped_dict,
+        )
 
     def _compute_module(self, submatrix: pd.DataFrame, global_center: pd.Series | None) -> dict[str, pd.Series | float]:
         if self.center == "fixed" and global_center is None:
@@ -36,9 +73,9 @@ class ROMA:
             row_means = submatrix.mean(axis=1)
             X = submatrix.sub(row_means, axis="index")
         else:  # "fixed"
-            X = submatrix.sub(global_center, axis="columns")
-        ...
-
+            aligned_center = global_center.loc[submatrix.columns]
+            X = submatrix.sub(aligned_center, axis="columns")
+            
         pca = PCA(n_components=2, random_state=self.random_state)
         pca.fit(X.T)                          # samples as rows, genes as columns
         scores = pca.transform(X.T)[:, 0]     # PC1 projection only
@@ -97,3 +134,59 @@ class ROMA:
             null_gap[i] = result["l1"] - result["l2"]
 
         return np.column_stack([null_l1, null_gap])
+
+def test_fit_returns_romaresults(coordinated_expression):
+    from romapy.results import resultROMA
+
+    expression, factor = coordinated_expression
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+    roma = ROMA(center="standard", n_permutations=100, random_state=0)
+    results = roma.fit(expression, gene_sets)
+
+    assert isinstance(results, resultROMA)
+    assert list(results.scores.index) == ["COORD_MODULE"]
+
+
+def test_recovers_known_coordinated_module(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {
+        "COORD_MODULE": [f"COORD_{i}" for i in range(5)],
+        "NOISE_MODULE": [f"NOISE_{i}" for i in range(5)],
+    }
+    roma = ROMA(center="standard", n_permutations=200, random_state=0)
+    results = roma.fit(expression, gene_sets)
+
+    assert results.l1_pval["COORD_MODULE"] < 0.05
+    assert results.l1_pval["NOISE_MODULE"] > 0.05
+
+
+def test_fixed_center_differs_from_standard(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+
+    fixed = ROMA(center="fixed", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
+    standard = ROMA(center="standard", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
+
+    assert not np.allclose(fixed.scores.loc["COORD_MODULE"], standard.scores.loc["COORD_MODULE"])
+
+
+def test_robust_mode_drops_injected_outlier(coordinated_expression):
+    expression, factor = coordinated_expression
+    df = expression.copy()
+    df["sample_0"] = df["sample_0"] * 100  # inject an extreme outlier
+
+    gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
+    roma = ROMA(center="standard", robust=True, z_max=3.0, n_permutations=50, random_state=0)
+    results = roma.fit(df, gene_sets)
+
+    assert "sample_0" in results.dropped_samples["COORD_MODULE"]
+
+
+def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
+    expression, factor = coordinated_expression
+    gene_sets = {"TOO_SMALL": ["COORD_0", "COORD_1"]}  # only 2 genes
+
+    roma = ROMA(center="standard", n_permutations=50, random_state=0)
+    results = roma.fit(expression, gene_sets, min_genes=5)
+
+    assert "TOO_SMALL" not in results.scores.index
