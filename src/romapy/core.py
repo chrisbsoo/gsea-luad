@@ -29,11 +29,15 @@ class ROMA:
         raise NotImplementedError("<func> fit")
 
     def _compute_module(self, submatrix: pd.DataFrame, global_center: pd.Series | None) -> dict[str, pd.Series | float]:
+        if self.center == "fixed" and global_center is None:
+            raise ValueError("global_center is required when center='fixed'")
+
         if self.center == "standard":
             row_means = submatrix.mean(axis=1)
             X = submatrix.sub(row_means, axis="index")
         else:  # "fixed"
             X = submatrix.sub(global_center, axis="columns")
+        ...
 
         pca = PCA(n_components=2, random_state=self.random_state)
         pca.fit(X.T)                          # samples as rows, genes as columns
@@ -79,7 +83,17 @@ class ROMA:
         return submatrix[kept], dropped
 
     def _null_distribution(self, expression: pd.DataFrame, module_size: int, global_center: pd.Series | None) -> np.ndarray:
-        # TODO: pval checking gene sets with randomised inputs, if sig better proceed
-        
+        rng = np.random.default_rng(self.random_state)
+        all_genes = expression.index.to_numpy()
 
-        raise NotImplementedError("<func> _null_distribution")
+        null_l1 = np.empty(self.n_permutations)
+        null_gap = np.empty(self.n_permutations)
+
+        for i in range(self.n_permutations):
+            random_genes = rng.choice(all_genes, size=module_size, replace=False)
+            random_submatrix = expression.loc[random_genes]
+            result = self._compute_module(random_submatrix, global_center)
+            null_l1[i] = result["l1"]
+            null_gap[i] = result["l1"] - result["l2"]
+
+        return np.column_stack([null_l1, null_gap])
