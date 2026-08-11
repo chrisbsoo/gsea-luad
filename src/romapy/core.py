@@ -101,24 +101,31 @@ class ROMA:
 
     def _trim_outliers(self, submatrix: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         samples = submatrix.columns.tolist()
+        n_samples = len(samples)
+        X = submatrix.to_numpy()  # genes x samples
 
-        leave_one_out_l1 = []
-        for sample in samples:
-            reduced = submatrix.drop(columns=sample)
-            row_means = reduced.mean(axis=1)
-            X = reduced.sub(row_means, axis="index")
-            scores, var = self._pca_fast(X.T.to_numpy(), 2)
-            scores = scores[:, 0]
-            l1, l2 = var
-            leave_one_out_l1.append(l1)
+        # build all n_samples leave-one-out folds as one 3D batch:
+        # batch[i] = X with column i removed
+        batch = np.stack([
+            np.delete(X, i, axis=1) for i in range(n_samples)
+        ])  # shape (n_samples, n_genes, n_samples - 1)
 
-        leave_one_out_l1 = np.array(leave_one_out_l1)
+        row_means = batch.mean(axis=2, keepdims=True)
+        batch_centered = batch - row_means
+
+        gram_batch = np.einsum("bik,bjk->bij", batch_centered, batch_centered)
+        eigval1, _ = self._batched_power_iteration(gram_batch, random_state=self.random_state)
+
+        trace = np.einsum("bii->b", gram_batch)
+        trace[trace == 0] = 1.0
+        leave_one_out_l1 = eigval1 / trace
+
         std = leave_one_out_l1.std()
         if std == 0:
             return submatrix, []
 
         z_scores = (leave_one_out_l1 - leave_one_out_l1.mean()) / std
-        dropped = [samples[i] for i in range(len(samples)) if abs(z_scores[i]) > self.z_max]
+        dropped = [samples[i] for i in range(n_samples) if abs(z_scores[i]) > self.z_max]
         kept = [s for s in samples if s not in dropped]
 
         return submatrix[kept], dropped

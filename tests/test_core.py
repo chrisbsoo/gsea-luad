@@ -197,3 +197,35 @@ def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
 
     assert "TOO_SMALL" not in results.scores.index
 
+def test_trim_outliers_batched_matches_per_sample_reference(coordinated_expression):
+    expression, factor = coordinated_expression
+    coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
+
+    roma = ROMA(center="standard", z_max=3.0, random_state=0)
+
+    # reference: exact SVD, one leave-one-out fold at a time
+    samples = coord_submatrix.columns.tolist()
+    reference_l1 = []
+    for sample in samples:
+        reduced = coord_submatrix.drop(columns=sample)
+        row_means = reduced.mean(axis=1)
+        X = reduced.sub(row_means, axis="index")
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=1, random_state=0)
+        pca.fit(X.T)
+        reference_l1.append(pca.explained_variance_ratio_[0])
+    reference_l1 = np.array(reference_l1)
+
+    # batched version, same underlying data
+    X = coord_submatrix.to_numpy()
+    n_samples = len(samples)
+    batch = np.stack([np.delete(X, i, axis=1) for i in range(n_samples)])
+    row_means = batch.mean(axis=2, keepdims=True)
+    batch_centered = batch - row_means
+    gram_batch = np.einsum("bik,bjk->bij", batch_centered, batch_centered)
+    eigval1, _ = roma._batched_power_iteration(gram_batch, random_state=roma.random_state)
+    trace = np.einsum("bii->b", gram_batch)
+    batched_l1 = eigval1 / trace
+
+    assert np.allclose(batched_l1, reference_l1, atol=0.05)
+
