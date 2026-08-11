@@ -26,6 +26,7 @@ class ROMA:
 
         scores_dict, l1_dict, l1_pval_dict, coord_pval_dict = {}, {}, {}, {}
         gene_weights_dict, dropped_dict = {}, {}
+        null_cache: dict[int, np.ndarray] = {}   # <-- new
 
         for name, genes in gene_sets.items():
             genes_present = [g for g in genes if g in expression.index]
@@ -41,7 +42,11 @@ class ROMA:
             result = self._compute_module(submatrix, global_center)
             oriented_scores = self._orient_pc1(result["scores"], submatrix)
 
-            null = self._null_distribution(expression, len(genes_present), global_center)
+            size = len(genes_present)
+            if size not in null_cache:
+                null_cache[size] = self._null_distribution(expression, size, global_center)
+            null = null_cache[size]
+
             real_l1 = result["l1"]
             real_gap = result["l1"] - result["l2"]
 
@@ -56,7 +61,7 @@ class ROMA:
             dropped_dict[name] = dropped
 
         return resultROMA(
-            scores=pd.DataFrame(scores_dict).T,   # modules x samples
+            scores=pd.DataFrame(scores_dict).T,
             l1=pd.Series(l1_dict),
             l1_pval=pd.Series(l1_pval_dict),
             coord_pval=pd.Series(coord_pval_dict),
