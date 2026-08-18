@@ -6,7 +6,7 @@ set, etc.) in individual samples from expression data, with statistical signific
 built in. 
 
 Check the PyPI details here: https://pypi.org/project/romapy/
-Check the github repo here: https://https://github.com/chrisbsoo/romapy
+Check the github repo here: https://github.com/chrisbsoo/romapy
 Check the LUAD example here: https://github.com/chrisbsoo/romapy/tree/main/examples/LUAD_baseline
 
 
