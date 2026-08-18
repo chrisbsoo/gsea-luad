@@ -3,7 +3,7 @@
 An independent Python implementation of **ROMA** (Representation and Quantification of Module
 Activity) — a method for scoring the activity of a gene set (pathway, transcription-factor target
 set, etc.) in individual samples from expression data, with statistical significance testing
-built in.
+built in. Check the PyPI details here: https://pypi.org/project/romapy/
 
 ## Why this exists
 
