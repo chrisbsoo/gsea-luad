@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Literal
+
 import pandas as pd
 
 # NOTE: result wrapper as an object, no awkward unpacking needed

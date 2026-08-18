@@ -10,7 +10,6 @@ Cleans TCGA-LUAD mRNA expression data:
 
 import argparse
 
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import PowerTransformer
 
@@ -67,8 +66,8 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     try:
         df.to_csv("./data/processed/cleaned_mrna.csv", index=True)
-    except:
-        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline")
+    except FileNotFoundError as e:
+        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline") from e
 
     return df
 

@@ -2,9 +2,10 @@
 from dataclasses import dataclass
 from typing import Literal
 
+import numpy as np
+
 # NOTE: Engine
 import pandas as pd
-import numpy as np
 
 # NOTE: Cross-Files
 from romapy.results import resultROMA
@@ -164,7 +165,7 @@ class ROMA:
 
     def _pca_fast(self, X_centered: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
 
-        U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        U, S, _Vt = np.linalg.svd(X_centered, full_matrices=False)
         explained_variance = (S ** 2) / (X_centered.shape[0] - 1)
         explained_variance_ratio = explained_variance / explained_variance.sum()
         scores = U[:, :n_components] * S[:n_components]

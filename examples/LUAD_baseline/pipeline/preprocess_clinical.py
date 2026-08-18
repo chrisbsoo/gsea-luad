@@ -11,8 +11,8 @@ import argparse
 
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score
 
 STAGE_COL = "Neoplasm Disease Stage American Joint Committee on Cancer Code"
 T_COL = "American Joint Committee on Cancer Tumor Stage Code"
@@ -101,8 +101,8 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     try:
         df_output.to_csv("./data/processed/cleaned_clinical.csv", index=True)
-    except:
-        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline")
+    except FileNotFoundError as e:
+        raise ReferenceError("Please make sure run_pipeline.ipynb is in root dir of LUAD_baseline") from e
 
     return df_output
 

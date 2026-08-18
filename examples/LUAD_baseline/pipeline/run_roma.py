@@ -8,10 +8,11 @@ Applies romapy to the cleaned TCGA-LUAD data:
 """
 
 import argparse
-from scipy.stats import f_oneway
-from statsmodels.stats.multitest import multipletests   # add this import
+
 import pandas as pd
 from scipy.stats import f_oneway
+from statsmodels.stats.multitest import multipletests  # add this import
+
 from romapy import ROMA, load_gmt
 
 

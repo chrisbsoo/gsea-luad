@@ -4,6 +4,7 @@ import pytest
 
 from romapy.core import ROMA
 
+
 @pytest.fixture
 def coordinated_expression():
     rng = np.random.default_rng(42)
@@ -27,7 +28,7 @@ def coordinated_expression():
 
 
 def test_compute_module_separates_coordinated_from_noise(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
     noise_submatrix = expression.loc[[f"NOISE_{i}" for i in range(5)]]
 
@@ -50,7 +51,7 @@ def test_compute_module_recovers_known_signal(coordinated_expression):
 
 
 def test_compute_module_returns_expected_shape(coordinated_expression):
-    expression, _ = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(center="standard")
@@ -62,10 +63,9 @@ def test_compute_module_returns_expected_shape(coordinated_expression):
     assert 0.0 <= result["l1"] <= 1.0
 
 def test_trim_outliers_drops_injected_outlier(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]].copy()
 
-    # inject an extreme, obvious outlier into one sample
     coord_submatrix["sample_0"] = coord_submatrix["sample_0"] * 50
 
     roma = ROMA(z_max=3.0, random_state=0)
@@ -76,16 +76,16 @@ def test_trim_outliers_drops_injected_outlier(coordinated_expression):
 
 
 def test_trim_outliers_keeps_clean_data_unchanged(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(z_max=3.0, random_state=0)
-    trimmed, dropped = roma._trim_outliers(coord_submatrix)
+    _trimmed, dropped = roma._trim_outliers(coord_submatrix)
     assert len(dropped) <= 2
 
 
 def test_trim_outliers_returns_correct_types(coordinated_expression):
-    expression, _ = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(random_state=0)
@@ -95,7 +95,7 @@ def test_trim_outliers_returns_correct_types(coordinated_expression):
     assert isinstance(dropped, list)
 
 def test_orient_pc1_flips_when_anticorrelated(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(center="standard", random_state=0)
@@ -113,7 +113,7 @@ def test_orient_pc1_flips_when_anticorrelated(coordinated_expression):
 
 
 def test_orient_pc1_leaves_already_correct_sign_unchanged(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(center="standard", random_state=0)
@@ -124,14 +124,14 @@ def test_orient_pc1_leaves_already_correct_sign_unchanged(coordinated_expression
 
     oriented = roma._orient_pc1(result["scores"], coord_submatrix)
     oriented_correlation = np.corrcoef(oriented, mean_expr)[0, 1]
+    assert oriented_correlation > 0 
 
-    # if it was already positively correlated, orientation shouldn't touch it
     if raw_correlation > 0:
         assert np.allclose(oriented.values, result["scores"].values)
 
 
 def test_orient_pc1_preserves_index_and_magnitude(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(center="standard", random_state=0)
@@ -144,7 +144,7 @@ def test_orient_pc1_preserves_index_and_magnitude(coordinated_expression):
 def test_fit_returns_romaresults(coordinated_expression):
     from romapy.results import resultROMA
 
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
     roma = ROMA(center="standard", n_permutations=100, random_state=0)
     results = roma.fit(expression, gene_sets)
@@ -154,7 +154,7 @@ def test_fit_returns_romaresults(coordinated_expression):
 
 
 def test_recovers_known_coordinated_module(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     gene_sets = {
         "COORD_MODULE": [f"COORD_{i}" for i in range(5)],
         "NOISE_MODULE": [f"NOISE_{i}" for i in range(5)],
@@ -167,7 +167,7 @@ def test_recovers_known_coordinated_module(coordinated_expression):
 
 
 def test_fixed_center_differs_from_standard(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     gene_sets = {"COORD_MODULE": [f"COORD_{i}" for i in range(5)]}
 
     fixed = ROMA(center="fixed", robust=False, n_permutations=50, random_state=0).fit(expression, gene_sets)
@@ -177,7 +177,7 @@ def test_fixed_center_differs_from_standard(coordinated_expression):
 
 
 def test_robust_mode_drops_injected_outlier(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     df = expression.copy()
     df["sample_0"] = df["sample_0"] * 100  # inject an extreme outlier
 
@@ -189,7 +189,7 @@ def test_robust_mode_drops_injected_outlier(coordinated_expression):
 
 
 def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     gene_sets = {"TOO_SMALL": ["COORD_0", "COORD_1"]}  # only 2 genes
 
     roma = ROMA(center="standard", n_permutations=50, random_state=0)
@@ -198,7 +198,7 @@ def test_small_modules_below_min_genes_are_skipped(coordinated_expression):
     assert "TOO_SMALL" not in results.scores.index
 
 def test_trim_outliers_batched_matches_per_sample_reference(coordinated_expression):
-    expression, factor = coordinated_expression
+    expression, _factor = coordinated_expression
     coord_submatrix = expression.loc[[f"COORD_{i}" for i in range(5)]]
 
     roma = ROMA(center="standard", z_max=3.0, random_state=0)

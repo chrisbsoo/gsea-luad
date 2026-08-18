@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 # NOTE: gmt file transformer to key-value data structure for pre-existing pathways

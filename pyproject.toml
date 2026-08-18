@@ -9,7 +9,7 @@ description = "An independent Python implementation of ROMA (Representation and 
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
-authors = [{chris = "Christopher Soo", email = "chris.bsoo2005@gmail.com"}]
+authors = [{name = "Christopher Soo", email = "chris.bsoo2005@gmail.com"}]
 keywords = ["bioinformatics", "gene-set-enrichment", "pca", "pathway-analysis", "genomics"]
 classifiers = [
     "Development Status :: 4 - Beta",
