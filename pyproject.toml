@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "romapy"
-version = "0.1.1"   # match your latest tag
+version = "0.1.2"
 description = "An independent Python implementation of ROMA (Representation and Quantification of Module Activity)"
 readme = "README.md"
 license = {text = "MIT"}
