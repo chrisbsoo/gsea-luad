@@ -16,11 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-          with:
+        with:
             python-version: ${{ matrix.python-version }}
       - name: Install
-          run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]"
       - name: Lint
-          run: ruff check .
+        run: ruff check .
       - name: Test
-          run: pytest -v
+        run: pytest -v
